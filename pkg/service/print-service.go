@@ -3,10 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
-	"io"
 
-	"github.com/jacobsa/go-serial/serial"
 	"github.com/jonasclaes/go-thermal-printer/pkg/escpos"
+	"go.bug.st/serial"
 )
 
 type PrintJob struct {
@@ -27,7 +26,7 @@ type StatusRequest struct {
 }
 
 type PrintService struct {
-	port        io.ReadWriteCloser
+	port        serial.Port
 	printer     *escpos.ESCPOS
 	printQueue  chan PrintJob
 	statusQueue chan StatusRequest
@@ -35,16 +34,14 @@ type PrintService struct {
 }
 
 func NewPrintService() (*PrintService, error) {
-	options := serial.OpenOptions{
-		PortName:              "COM5",
-		BaudRate:              19200,
-		DataBits:              8,
-		StopBits:              1,
-		MinimumReadSize:       0,
-		InterCharacterTimeout: 100,
+	mode := &serial.Mode{
+		BaudRate: 19200,
+		DataBits: 8,
+		StopBits: serial.OneStopBit,
+		Parity:   serial.NoParity,
 	}
 
-	port, err := serial.Open(options)
+	port, err := serial.Open("/dev/ttyUSB0", mode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open serial port: %w", err)
 	}
@@ -88,12 +85,6 @@ func (pm *PrintService) print(data []byte) error {
 	_, err := pm.port.Write(data)
 	if err != nil {
 		return fmt.Errorf("failed to write to printer: %w", err)
-	}
-
-	readData := make([]byte, 1)
-	_, err = pm.port.Read(readData)
-	if err != nil {
-		return fmt.Errorf("failed to read from printer: %w", err)
 	}
 
 	return nil

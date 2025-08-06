@@ -2,17 +2,18 @@ package escpos
 
 import (
 	"bufio"
-	"io"
 	"log"
+
+	"go.bug.st/serial"
 )
 
 type ESCPOS struct {
-	rw          io.ReadWriter
+	rw          serial.Port
 	printStream *bufio.Writer
 }
 
 // Create a new ESC/POS printer instance.
-func NewESCPOS(rw io.ReadWriter) (escpos *ESCPOS) {
+func NewESCPOS(rw serial.Port) (escpos *ESCPOS) {
 
 	escpos = &ESCPOS{
 		rw:          rw,
@@ -39,24 +40,13 @@ func (escpos *ESCPOS) Text(data string) (int, error) {
 	return escpos.Write([]byte(data))
 }
 
-func (escpos *ESCPOS) clearPendingDataInReadBuffer() {
-	// Clear any pending data in the read buffer
-	buffer := make([]byte, 1024)
-	totalCleared := 0
-	for {
-		n, err := escpos.rw.Read(buffer)
-		if err != nil || n == 0 {
-			break // No more data to read or an error occurred
-		}
-		totalCleared += n
-		log.Printf("Cleared %d stale bytes from read buffer", n)
-	}
-}
-
 func (escpos *ESCPOS) status(statusByte byte) (byte, error) {
-	escpos.clearPendingDataInReadBuffer()
+	err := escpos.rw.ResetInputBuffer()
+	if err != nil {
+		log.Fatalf("failed to reset input buffer: %v", err)
+	}
 
-	_, err := escpos.rw.Write([]byte{0x10, 0x04, statusByte})
+	_, err = escpos.rw.Write([]byte{0x10, 0x04, statusByte})
 	if err != nil {
 		log.Fatalf("failed to send status command: %v", err)
 	}
