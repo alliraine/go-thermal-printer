@@ -1,0 +1,12 @@
+package dto
+
+type PrinterStatusDto struct {
+	PrinterStatus         byte `json:"printerStatus"`
+	OfflineStatus         byte `json:"offlineStatus"`
+	ErrorStatus           byte `json:"errorStatus"`
+	ContinuousPaperStatus byte `json:"continuousPaperStatus"`
+}
+
+type PrinterPrintDto struct {
+	Data []byte `json:"data" binding:"required"`
+}
