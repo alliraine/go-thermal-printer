@@ -39,8 +39,6 @@ func NewPrintService(configService *ConfigService) (*PrintService, error) {
 	mode := &serial.Mode{
 		BaudRate: printerConfig.BaudRate,
 		DataBits: printerConfig.DataBits,
-		StopBits: serial.OneStopBit,
-		Parity:   serial.NoParity,
 	}
 
 	// Convert StopBits from int to serial.StopBits
