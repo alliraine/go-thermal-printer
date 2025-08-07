@@ -53,7 +53,7 @@ func (p *ESCPOS) resetInputBuffer() {
 	if serialPort, ok := p.rw.(serial.Port); ok {
 		err := serialPort.ResetInputBuffer()
 		if err != nil {
-			log.Fatalf("failed to reset input buffer: %v", err)
+			log.Printf("warning: failed to reset input buffer: %v", err)
 		}
 	}
 }
