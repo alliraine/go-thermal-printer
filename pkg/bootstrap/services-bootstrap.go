@@ -7,6 +7,7 @@ import (
 )
 
 type services struct {
+	configService  *service.ConfigService
 	printService   *service.PrintService
 	printerService *service.PrinterService
 }
@@ -14,7 +15,12 @@ type services struct {
 func initServices() (svc *services, err error) {
 	svc = &services{}
 
-	svc.printService, err = service.NewPrintService()
+	svc.configService, err = service.NewConfigService()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize config service: %w", err)
+	}
+
+	svc.printService, err = service.NewPrintService(svc.configService)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize print service: %w", err)
 	}

@@ -33,15 +33,43 @@ type PrintService struct {
 	quit        chan struct{}
 }
 
-func NewPrintService() (*PrintService, error) {
+func NewPrintService(configService *ConfigService) (*PrintService, error) {
+	printerConfig := configService.GetPrinterConfig()
+
 	mode := &serial.Mode{
-		BaudRate: 19200,
-		DataBits: 8,
+		BaudRate: printerConfig.BaudRate,
+		DataBits: printerConfig.DataBits,
 		StopBits: serial.OneStopBit,
 		Parity:   serial.NoParity,
 	}
 
-	port, err := serial.Open("/dev/ttyUSB0", mode)
+	// Convert StopBits from int to serial.StopBits
+	switch printerConfig.StopBits {
+	case 1:
+		mode.StopBits = serial.OneStopBit
+	case 2:
+		mode.StopBits = serial.TwoStopBits
+	default:
+		mode.StopBits = serial.OneStopBit
+	}
+
+	// Convert Parity from int to serial.Parity
+	switch printerConfig.Parity {
+	case 0:
+		mode.Parity = serial.NoParity
+	case 1:
+		mode.Parity = serial.OddParity
+	case 2:
+		mode.Parity = serial.EvenParity
+	case 3:
+		mode.Parity = serial.MarkParity
+	case 4:
+		mode.Parity = serial.SpaceParity
+	default:
+		mode.Parity = serial.NoParity
+	}
+
+	port, err := serial.Open(printerConfig.Port, mode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open serial port: %w", err)
 	}

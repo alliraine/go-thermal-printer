@@ -1,6 +1,8 @@
 package bootstrap
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func Bootstrap() error {
 	svc, err := initServices()
@@ -13,7 +15,10 @@ func Bootstrap() error {
 		return fmt.Errorf("failed to initialize router: %w", err)
 	}
 
-	err = router.Run("127.0.0.1:8080")
+	serverConfig := svc.configService.GetServerConfig()
+	addr := fmt.Sprintf("%s:%d", serverConfig.Host, serverConfig.Port)
+
+	err = router.Run(addr)
 	if err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
