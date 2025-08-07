@@ -27,6 +27,9 @@ go.work.sum
 # env file
 .env
 
+# Config files (keep config.toml as example, ignore local configs)
+config.toml
+
 # Editor/IDE
 # .idea/
 # .vscode/

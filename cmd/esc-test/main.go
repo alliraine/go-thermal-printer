@@ -38,8 +38,6 @@ func main() {
 	e.PrintAndFeedPaperNLines(7)
 	// e.SelectCutModeAndCutPaper(escpos.CutModeFull)
 
-	e.Print()
-
 	// print buffer as base64
 	log.Printf("Print buffer (base64): %s", base64.StdEncoding.EncodeToString(buffer.Bytes()))
 }
