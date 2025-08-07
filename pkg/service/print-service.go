@@ -63,26 +63,26 @@ func NewPrintService() (*PrintService, error) {
 }
 
 // worker processes all serial communication sequentially
-func (pm *PrintService) worker() {
+func (ps *PrintService) worker() {
 	for {
 		select {
-		case job := <-pm.printQueue:
-			err := pm.print(job.Data)
+		case job := <-ps.printQueue:
+			err := ps.print(job.Data)
 			job.Response <- err
 
-		case statusReq := <-pm.statusQueue:
-			status := pm.status()
+		case statusReq := <-ps.statusQueue:
+			status := ps.status()
 			statusReq.Response <- status
 
-		case <-pm.quit:
+		case <-ps.quit:
 			return
 		}
 	}
 }
 
 // print sends data to the printer
-func (pm *PrintService) print(data []byte) error {
-	_, err := pm.port.Write(data)
+func (ps *PrintService) print(data []byte) error {
+	_, err := ps.printer.Write(data)
 	if err != nil {
 		return fmt.Errorf("failed to write to printer: %w", err)
 	}
@@ -91,29 +91,29 @@ func (pm *PrintService) print(data []byte) error {
 }
 
 // status retrieves the printer status
-func (pm *PrintService) status() StatusResponse {
-	printerStatus, err := pm.printer.PrinterStatus()
+func (ps *PrintService) status() StatusResponse {
+	printerStatus, err := ps.printer.PrinterStatus()
 	if err != nil {
 		return StatusResponse{
 			Error: fmt.Errorf("failed to get printer status: %w", err),
 		}
 	}
 
-	offlineStatus, err := pm.printer.OfflineStatus()
+	offlineStatus, err := ps.printer.OfflineStatus()
 	if err != nil {
 		return StatusResponse{
 			Error: fmt.Errorf("failed to get offline status: %w", err),
 		}
 	}
 
-	errorStatus, err := pm.printer.ErrorStatus()
+	errorStatus, err := ps.printer.ErrorStatus()
 	if err != nil {
 		return StatusResponse{
 			Error: fmt.Errorf("failed to get error status: %w", err),
 		}
 	}
 
-	continuousPaperStatus, err := pm.printer.ContinuousPaperStatus()
+	continuousPaperStatus, err := ps.printer.ContinuousPaperStatus()
 	if err != nil {
 		return StatusResponse{
 			Error: fmt.Errorf("failed to get continuous paper status: %w", err),
@@ -130,7 +130,7 @@ func (pm *PrintService) status() StatusResponse {
 }
 
 // Print queues a print job and waits for the response
-func (pm *PrintService) Print(ctx context.Context, data []byte) error {
+func (ps *PrintService) Print(ctx context.Context, data []byte) error {
 	response := make(chan error, 1)
 	job := PrintJob{
 		Data:     data,
@@ -138,7 +138,7 @@ func (pm *PrintService) Print(ctx context.Context, data []byte) error {
 	}
 
 	select {
-	case pm.printQueue <- job:
+	case ps.printQueue <- job:
 		// Job queued successfully, wait for response
 		select {
 		case err := <-response:
@@ -152,14 +152,14 @@ func (pm *PrintService) Print(ctx context.Context, data []byte) error {
 }
 
 // Status retrieves the printer status and waits for the response
-func (pm *PrintService) Status(ctx context.Context) (StatusResponse, error) {
+func (ps *PrintService) Status(ctx context.Context) (StatusResponse, error) {
 	response := make(chan StatusResponse, 1)
 	req := StatusRequest{
 		Response: response,
 	}
 
 	select {
-	case pm.statusQueue <- req:
+	case ps.statusQueue <- req:
 		// Status request queued successfully, wait for response
 		select {
 		case status := <-response:
@@ -172,8 +172,7 @@ func (pm *PrintService) Status(ctx context.Context) (StatusResponse, error) {
 	}
 }
 
-// Close shuts down the printer manager
-func (pm *PrintService) Close() error {
-	close(pm.quit)
-	return pm.port.Close()
+func (ps *PrintService) Close() error {
+	close(ps.quit)
+	return ps.port.Close()
 }

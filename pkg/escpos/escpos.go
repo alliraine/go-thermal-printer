@@ -1,85 +1,99 @@
 package escpos
 
 import (
-	"bufio"
+	"io"
 	"log"
 
 	"go.bug.st/serial"
 )
 
 type ESCPOS struct {
-	rw          serial.Port
-	printStream *bufio.Writer
+	rw io.ReadWriter
 }
 
-// Create a new ESC/POS printer instance.
-func NewESCPOS(rw serial.Port) (escpos *ESCPOS) {
-
+func NewESCPOS(rw io.ReadWriter) (escpos *ESCPOS) {
 	escpos = &ESCPOS{
-		rw:          rw,
-		printStream: bufio.NewWriter(rw),
+		rw: rw,
 	}
 	return
 }
 
-// Sends the buffered data to the printer.
-func (escpos *ESCPOS) Print() error {
-	return escpos.printStream.Flush()
-}
-
 // Write raw bytes to the printer.
-func (escpos *ESCPOS) Write(data []byte) (int, error) {
+func (p *ESCPOS) Write(data []byte) (int, error) {
 	if len(data) > 0 {
-		return escpos.printStream.Write(data)
+		return p.rw.Write(data)
 	}
 	return 0, nil
 }
 
-// Writes a string using the predefined options.
-func (escpos *ESCPOS) Text(data string) (int, error) {
-	return escpos.Write([]byte(data))
+// Reads raw bytes from the printer.
+func (p *ESCPOS) Read(length int) ([]byte, error) {
+	buf := make([]byte, length)
+	n, err := p.rw.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf[:n], nil
+}
+
+// Reads a single byte from the printer.
+func (p *ESCPOS) ReadByte() (byte, error) {
+	data, err := p.Read(1)
+	if err != nil {
+		return 0, err
+	}
+	return data[0], nil
+}
+
+func (p *ESCPOS) Text(data string) (int, error) {
+	return p.Write([]byte(data))
+}
+
+func (p *ESCPOS) resetInputBuffer() {
+	if serialPort, ok := p.rw.(serial.Port); ok {
+		err := serialPort.ResetInputBuffer()
+		if err != nil {
+			log.Fatalf("failed to reset input buffer: %v", err)
+		}
+	}
 }
 
 func (escpos *ESCPOS) status(statusByte byte) (byte, error) {
-	err := escpos.rw.ResetInputBuffer()
-	if err != nil {
-		log.Fatalf("failed to reset input buffer: %v", err)
-	}
+	escpos.resetInputBuffer()
 
-	_, err = escpos.rw.Write([]byte{0x10, 0x04, statusByte})
+	_, err := escpos.rw.Write([]byte{0x10, 0x04, statusByte})
 	if err != nil {
 		log.Fatalf("failed to send status command: %v", err)
 	}
 
-	data := make([]byte, 1)
-	_, err = escpos.rw.Read(data)
+	data, err := escpos.ReadByte()
 	if err != nil {
 		log.Fatalf("failed to read status response: %v", err)
 	}
 
-	return data[0], nil
+	return data, nil
 }
 
 // Control Commands
 
-func (escpos *ESCPOS) PrinterStatus() (byte, error) {
-	return escpos.status(0x01)
+func (p *ESCPOS) PrinterStatus() (byte, error) {
+	return p.status(0x01)
 }
 
-func (escpos *ESCPOS) OfflineStatus() (byte, error) {
-	return escpos.status(0x02)
+func (p *ESCPOS) OfflineStatus() (byte, error) {
+	return p.status(0x02)
 }
 
-func (escpos *ESCPOS) ErrorStatus() (byte, error) {
-	return escpos.status(0x03)
+func (p *ESCPOS) ErrorStatus() (byte, error) {
+	return p.status(0x03)
 }
 
-func (escpos *ESCPOS) ContinuousPaperStatus() (byte, error) {
-	return escpos.status(0x04)
+func (p *ESCPOS) ContinuousPaperStatus() (byte, error) {
+	return p.status(0x04)
 }
 
-func (escpos *ESCPOS) isPrinterStatus(mask byte) bool {
-	status, err := escpos.PrinterStatus()
+func (p *ESCPOS) isPrinterStatus(mask byte) bool {
+	status, err := p.PrinterStatus()
 	if err != nil {
 		log.Fatalf("failed to get printer status: %v", err)
 	}
@@ -87,8 +101,8 @@ func (escpos *ESCPOS) isPrinterStatus(mask byte) bool {
 	return status&mask != 0
 }
 
-func (escpos *ESCPOS) isOfflineStatus(mask byte) bool {
-	status, err := escpos.OfflineStatus()
+func (p *ESCPOS) isOfflineStatus(mask byte) bool {
+	status, err := p.OfflineStatus()
 	if err != nil {
 		log.Fatalf("failed to get offline status: %v", err)
 	}
@@ -96,8 +110,8 @@ func (escpos *ESCPOS) isOfflineStatus(mask byte) bool {
 	return status&mask != 0
 }
 
-func (escpos *ESCPOS) isErrorStatus(mask byte) bool {
-	status, err := escpos.ErrorStatus()
+func (p *ESCPOS) isErrorStatus(mask byte) bool {
+	status, err := p.ErrorStatus()
 	if err != nil {
 		log.Fatalf("failed to get error status: %v", err)
 	}
@@ -105,8 +119,8 @@ func (escpos *ESCPOS) isErrorStatus(mask byte) bool {
 	return status&mask != 0
 }
 
-func (escpos *ESCPOS) isContinuousPaperStatus(mask byte) bool {
-	status, err := escpos.ContinuousPaperStatus()
+func (p *ESCPOS) isContinuousPaperStatus(mask byte) bool {
+	status, err := p.ContinuousPaperStatus()
 	if err != nil {
 		log.Fatalf("failed to get continuous paper status: %v", err)
 	}
@@ -114,92 +128,92 @@ func (escpos *ESCPOS) isContinuousPaperStatus(mask byte) bool {
 	return status&mask != 0
 }
 
-func (escpos *ESCPOS) IsDrawerOpenCloseSignalHigh() bool {
-	return escpos.isPrinterStatus(0x04)
+func (p *ESCPOS) IsDrawerOpenCloseSignalHigh() bool {
+	return p.isPrinterStatus(0x04)
 }
 
-func (escpos *ESCPOS) IsOffline() bool {
-	return escpos.isPrinterStatus(0x08)
+func (p *ESCPOS) IsOffline() bool {
+	return p.isPrinterStatus(0x08)
 }
 
-func (escpos *ESCPOS) IsCoverOpen() bool {
-	return escpos.isOfflineStatus(0x04)
+func (p *ESCPOS) IsCoverOpen() bool {
+	return p.isOfflineStatus(0x04)
 }
 
-func (escpos *ESCPOS) IsPaperBeingFedByFeedButton() bool {
-	return escpos.isOfflineStatus(0x08)
+func (p *ESCPOS) IsPaperBeingFedByFeedButton() bool {
+	return p.isOfflineStatus(0x08)
 }
 
-func (escpos *ESCPOS) IsPrintingBeingStopped() bool {
-	return escpos.isOfflineStatus(0x20)
+func (p *ESCPOS) IsPrintingBeingStopped() bool {
+	return p.isOfflineStatus(0x20)
 }
 
-func (escpos *ESCPOS) IsAutocutterError() bool {
-	return escpos.isErrorStatus(0x08)
+func (p *ESCPOS) IsAutocutterError() bool {
+	return p.isErrorStatus(0x08)
 }
 
-func (escpos *ESCPOS) IsUnrecoverableError() bool {
-	return escpos.isErrorStatus(0x20)
+func (p *ESCPOS) IsUnrecoverableError() bool {
+	return p.isErrorStatus(0x20)
 }
 
-func (escpos *ESCPOS) IsAutoRecoverableError() bool {
-	return escpos.isErrorStatus(0x40)
+func (p *ESCPOS) IsAutoRecoverableError() bool {
+	return p.isErrorStatus(0x40)
 }
 
-func (escpos *ESCPOS) IsPaperNearEnd() bool {
-	return escpos.isContinuousPaperStatus(0x0C)
+func (p *ESCPOS) IsPaperNearEnd() bool {
+	return p.isContinuousPaperStatus(0x0C)
 }
 
-func (escpos *ESCPOS) IsPaperEnd() bool {
-	return escpos.isContinuousPaperStatus(0x60)
+func (p *ESCPOS) IsPaperEnd() bool {
+	return p.isContinuousPaperStatus(0x60)
 }
 
 // Font Commands
 
-func (escpos *ESCPOS) Initialize() (int, error) {
-	return escpos.Write([]byte{0x1B, 0x40})
+func (p *ESCPOS) Initialize() (int, error) {
+	return p.Write([]byte{0x1B, 0x40})
 }
 
-func (escpos *ESCPOS) UnderlineMode(mode UnderlineMode) (int, error) {
-	return escpos.Write([]byte{0x1B, 0x2D, byte(mode)})
+func (p *ESCPOS) UnderlineMode(mode UnderlineMode) (int, error) {
+	return p.Write([]byte{0x1B, 0x2D, byte(mode)})
 }
 
-func (escpos *ESCPOS) ItalicsMode(mode ItalicsMode) (int, error) {
-	return escpos.Write([]byte{0x1B, 0x34, byte(mode)})
+func (p *ESCPOS) ItalicsMode(mode ItalicsMode) (int, error) {
+	return p.Write([]byte{0x1B, 0x34, byte(mode)})
 }
 
-func (escpos *ESCPOS) EmphasisMode(mode EmphasisMode) (int, error) {
-	return escpos.Write([]byte{0x1B, 0x45, byte(mode)})
+func (p *ESCPOS) EmphasisMode(mode EmphasisMode) (int, error) {
+	return p.Write([]byte{0x1B, 0x45, byte(mode)})
 }
 
-func (escpos *ESCPOS) SelectCharacterFont(font CharacterFont) (int, error) {
-	return escpos.Write([]byte{0x1B, 0x4D, byte(font)})
+func (p *ESCPOS) SelectCharacterFont(font CharacterFont) (int, error) {
+	return p.Write([]byte{0x1B, 0x4D, byte(font)})
 }
 
-func (escpos *ESCPOS) SelectCharacterCodePage(codePage CharacterCodePage) (int, error) {
-	return escpos.Write([]byte{0x1B, 0x74, byte(codePage)})
+func (p *ESCPOS) SelectCharacterCodePage(codePage CharacterCodePage) (int, error) {
+	return p.Write([]byte{0x1B, 0x74, byte(codePage)})
 }
 
 // Paper Movement Commands
 
-func (escpos *ESCPOS) FullCut() (int, error) {
-	return escpos.Write([]byte{0x1B, 0x6D})
+func (p *ESCPOS) FullCut() (int, error) {
+	return p.Write([]byte{0x1B, 0x6D})
 }
 
-func (escpos *ESCPOS) SelectCutModeAndCutPaper(cutMode CutMode) (int, error) {
-	return escpos.Write([]byte{0x1D, 0x56, byte(cutMode)})
+func (p *ESCPOS) SelectCutModeAndCutPaper(cutMode CutMode) (int, error) {
+	return p.Write([]byte{0x1D, 0x56, byte(cutMode)})
 }
 
-func (escpos *ESCPOS) PrintAndFeedPaperNLines(n int) (int, error) {
-	return escpos.Write([]byte{0x1B, 0x64, byte(n)})
+func (p *ESCPOS) PrintAndFeedPaperNLines(n int) (int, error) {
+	return p.Write([]byte{0x1B, 0x64, byte(n)})
 }
 
 // Cursor Position Commands
 
-func (escpos *ESCPOS) LineFeed() (int, error) {
-	return escpos.Write([]byte{0x0A})
+func (p *ESCPOS) LineFeed() (int, error) {
+	return p.Write([]byte{0x0A})
 }
 
-func (escpos *ESCPOS) FormFeed() (int, error) {
-	return escpos.Write([]byte{0x0C})
+func (p *ESCPOS) FormFeed() (int, error) {
+	return p.Write([]byte{0x0C})
 }
