@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        "tamasfe.even-better-toml",
+        "golang.go",
+        "yzhang.markdown-all-in-one",
+        "humao.rest-client"
+    ]
+}

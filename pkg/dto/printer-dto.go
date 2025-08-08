@@ -10,3 +10,8 @@ type PrinterStatusDto struct {
 type PrinterPrintDto struct {
 	Data []byte `json:"data" binding:"required"`
 }
+
+type PrinterPrintTemplateDto struct {
+	TemplateFile string         `json:"templateFile" binding:"required"`
+	Variables    map[string]any `json:"variables"`
+}

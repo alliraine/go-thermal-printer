@@ -35,3 +35,7 @@ config.toml
 # .vscode/
 
 tmp/
+
+# Ignore Docker-related files
+docker-compose.yml
+Dockerfile

@@ -1,0 +1,16 @@
+{{bold .storeName}}
+================
+Date: {{.date}}
+Time: {{.time}}
+Order #: {{.orderNumber}}
+================
+
+Items:
+{{range $item, $price := .items}}{{$item}}: {{bold (printf "\xD5%.2f\n" $price)}}{{end}}
+
+{{bold (printf "Subtotal: \xD5%.2f" .subtotal)}}
+{{bold (printf "Tax:      \xD5%.2f" .tax)}}
+{{bold (printf "Total:    \xD5%.2f" .total)}}
+
+{{underline "Thank you for your purchase!"}}
+Customer: {{.customerName}}

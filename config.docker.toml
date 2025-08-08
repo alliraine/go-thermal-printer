@@ -1,0 +1,12 @@
+# Go Thermal Printer Configuration Example
+
+[server]
+host = "0.0.0.0"
+port = 8080
+
+[printer]
+port = "/dev/ttyUSB0"           # Serial port path (Windows: "COM1", Linux: "/dev/ttyUSB0")
+baud_rate = 19200               # Baud rate for serial communication
+data_bits = 8                   # Number of data bits
+stop_bits = 1                   # Number of stop bits (1 or 2)
+parity = 0                      # Parity: 0=None, 1=Odd, 2=Even, 3=Mark, 4=Space

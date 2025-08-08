@@ -21,6 +21,7 @@ func NewPrinterController(group *gin.RouterGroup, printerService *service.Printe
 		printerGroup := group.Group("/printer")
 		printerGroup.GET("/status", controller.getPrinterStatusHandler)
 		printerGroup.POST("/print", controller.postPrinterPrintHandler)
+		printerGroup.POST("/print-template", controller.postPrinterPrintTemplateHandler)
 	}
 }
 
@@ -47,6 +48,22 @@ func (pc *PrinterController) postPrinterPrintHandler(c *gin.Context) {
 	}
 
 	err := pc.printerService.Print(c.Request.Context(), input)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.Status(http.StatusCreated)
+}
+
+func (pc *PrinterController) postPrinterPrintTemplateHandler(c *gin.Context) {
+	var input dto.PrinterPrintTemplateDto
+	if err := c.ShouldBindJSON(&input); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	err := pc.printerService.PrintTemplate(c.Request.Context(), input)
 	if err != nil {
 		_ = c.Error(err)
 		return

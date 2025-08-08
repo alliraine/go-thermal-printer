@@ -34,3 +34,12 @@ func (ps *PrinterService) Print(c context.Context, input dto.PrinterPrintDto) er
 
 	return err
 }
+
+func (ps *PrinterService) PrintTemplate(c context.Context, input dto.PrinterPrintTemplateDto) error {
+	ctx, cancel := context.WithTimeout(c, 10*time.Second)
+	defer cancel()
+
+	err := ps.printService.PrintTemplateWithVariables(ctx, input.TemplateFile, input.Variables)
+
+	return err
+}
