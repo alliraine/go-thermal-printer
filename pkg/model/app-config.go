@@ -6,7 +6,7 @@ type AppConfig struct {
 }
 
 type ServerConfig struct {
-	Host string `toml:"host" default:"127.0.0.1"`
+	Host string `toml:"host" default:"0.0.0.0"`
 	Port int    `toml:"port" default:"8080"`
 }
 
