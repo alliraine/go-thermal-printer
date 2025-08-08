@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jonasclaes/go-thermal-printer/pkg/escpos"
+	"github.com/jonasclaes/go-thermal-printer/pkg/template"
 	"go.bug.st/serial"
 )
 
@@ -196,6 +197,26 @@ func (ps *PrintService) Status(ctx context.Context) (StatusResponse, error) {
 	case <-ctx.Done():
 		return StatusResponse{}, ctx.Err()
 	}
+}
+
+// PrintTemplate renders a template and prints it to the thermal printer
+func (ps *PrintService) PrintTemplate(ctx context.Context, templateContent string) error {
+	data, err := template.RenderToBytes(templateContent)
+	if err != nil {
+		return fmt.Errorf("failed to render template: %w", err)
+	}
+
+	return ps.Print(ctx, data)
+}
+
+// PrintTemplateWithVariables renders a template file with variables and prints it to the thermal printer
+func (ps *PrintService) PrintTemplateWithVariables(ctx context.Context, templateFile string, variables map[string]string) error {
+	data, err := template.RenderTemplateFileWithVariables(templateFile, variables)
+	if err != nil {
+		return fmt.Errorf("failed to render template with variables: %w", err)
+	}
+
+	return ps.Print(ctx, data)
 }
 
 func (ps *PrintService) Close() error {

@@ -32,10 +32,26 @@ const (
 type CharacterCodePage int
 
 const (
-	CharacterCodePageDefault           CharacterCodePage = 0
-	CharacterCodePageCP437             CharacterCodePage = 3
-	CharacterCodePageCP808             CharacterCodePage = 17
-	CharacterCodePageGeorgianMkhedruli CharacterCodePage = 18
+	CharacterCodePageDefault    CharacterCodePage = 0
+	CharacterCodePagePC437      CharacterCodePage = 0
+	CharacterCodePageKatakana   CharacterCodePage = 1
+	CharacterCodePagePC850      CharacterCodePage = 2
+	CharacterCodePagePC860      CharacterCodePage = 3
+	CharacterCodePagePC863      CharacterCodePage = 4
+	CharacterCodePagePC865      CharacterCodePage = 5
+	CharacterCodePageHiragana   CharacterCodePage = 6
+	CharacterCodePagePC851      CharacterCodePage = 11
+	CharacterCodePagePC853      CharacterCodePage = 12
+	CharacterCodePagePC857      CharacterCodePage = 13
+	CharacterCodePagePC737      CharacterCodePage = 14
+	CharacterCodePageISO8859_7  CharacterCodePage = 15
+	CharacterCodePageWPC1252    CharacterCodePage = 16
+	CharacterCodePagePC866      CharacterCodePage = 17
+	CharacterCodePagePC852      CharacterCodePage = 18
+	CharacterCodePagePC858      CharacterCodePage = 19
+	CharacterCodePageISO8859_2  CharacterCodePage = 39
+	CharacterCodePageISO8859_15 CharacterCodePage = 40
+	CharacterCodePageWPC1250    CharacterCodePage = 45
 )
 
 type CutMode byte
