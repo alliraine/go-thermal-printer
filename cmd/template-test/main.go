@@ -9,16 +9,15 @@ import (
 )
 
 func main() {
-	// Example template content
-	templateContent := `<Bold>This is a test</Bold>
-<Underline>Test underline</Underline>
-<Italic>This is italic text</Italic>
+	// Example template content using new syntax
+	templateContent := `{{bold "This is a test"}}
+{{underline "Test underline"}}
+{{italic "This is italic text"}}
 Normal text here
-<Bold><Underline>Bold and underlined</Underline></Bold>
-<FontB>This uses font B</FontB>`
+{{bold (underline "Bold and underlined")}}`
 
-	// Render the template to bytes
-	data, err := template.RenderToBytes(templateContent)
+	// Render the template to bytes (passing nil for data since no variables used)
+	data, err := template.RenderToBytes(templateContent, nil)
 	if err != nil {
 		log.Fatalf("Failed to render template: %v", err)
 	}
@@ -46,6 +45,33 @@ Normal text here
 
 	fmt.Printf("\nBase64 encoded output:\n%s\n", base64.StdEncoding.EncodeToString(data))
 
+	fmt.Println()
+
+	// Test with variables
+	fmt.Println("\nTesting template with variables:")
+	templateWithVars := `Store: {{bold .storeName}}
+Total: {{bold (printf "$%.2f" .total)}}
+Customer: {{underline .customerName}}`
+
+	testData := map[string]interface{}{
+		"storeName":    "Jonas' Store",
+		"total":        29.99,
+		"customerName": "John Doe",
+	}
+
+	varData, err := template.RenderToBytes(templateWithVars, testData)
+	if err != nil {
+		log.Fatalf("Failed to render template with variables: %v", err)
+	}
+
+	fmt.Printf("Generated %d bytes with variables:\n", len(varData))
+	for _, b := range varData {
+		if b >= 32 && b <= 126 {
+			fmt.Printf("%c", b)
+		} else {
+			fmt.Printf("[%02X]", b)
+		}
+	}
 	fmt.Println()
 
 	fmt.Println("\nTemplate rendered successfully!")

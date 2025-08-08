@@ -12,6 +12,6 @@ type PrinterPrintDto struct {
 }
 
 type PrinterPrintTemplateDto struct {
-	TemplateFile string            `json:"templateFile" binding:"required"`
-	Variables    map[string]string `json:"variables"`
+	TemplateFile string         `json:"templateFile" binding:"required"`
+	Variables    map[string]any `json:"variables"`
 }

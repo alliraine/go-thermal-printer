@@ -200,23 +200,23 @@ func (ps *PrintService) Status(ctx context.Context) (StatusResponse, error) {
 }
 
 // PrintTemplate renders a template and prints it to the thermal printer
-func (ps *PrintService) PrintTemplate(ctx context.Context, templateContent string) error {
-	data, err := template.RenderToBytes(templateContent)
+func (ps *PrintService) PrintTemplate(ctx context.Context, templateContent string, data any) error {
+	renderedData, err := template.RenderToBytes(templateContent, data)
 	if err != nil {
 		return fmt.Errorf("failed to render template: %w", err)
 	}
 
-	return ps.Print(ctx, data)
+	return ps.Print(ctx, renderedData)
 }
 
 // PrintTemplateWithVariables renders a template file with variables and prints it to the thermal printer
-func (ps *PrintService) PrintTemplateWithVariables(ctx context.Context, templateFile string, variables map[string]string) error {
-	data, err := template.RenderTemplateFileWithVariables(templateFile, variables)
+func (ps *PrintService) PrintTemplateWithVariables(ctx context.Context, templateFile string, variables map[string]any) error {
+	renderedData, err := template.RenderTemplateFileWithVariables(templateFile, variables)
 	if err != nil {
 		return fmt.Errorf("failed to render template with variables: %w", err)
 	}
 
-	return ps.Print(ctx, data)
+	return ps.Print(ctx, renderedData)
 }
 
 func (ps *PrintService) Close() error {

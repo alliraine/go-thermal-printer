@@ -19,11 +19,11 @@ Date: {{date}}
 Thank you, {{customerName}}!`
 
 	// Create variables map
-	variables := map[string]string{
-		"storeName":   "My Coffee Shop",
-		"date":        "2025-08-07",
-		"orderNumber": "12345",
-		"total":       "$15.50",
+	variables := map[string]any{
+		"storeName":    "My Coffee Shop",
+		"date":         "2025-08-07",
+		"orderNumber":  "12345",
+		"total":        "$15.50",
 		"customerName": "John Doe",
 	}
 
@@ -60,8 +60,8 @@ Thank you, {{customerName}}!`
 
 	// Test template file rendering
 	fmt.Println("\nTesting template file rendering...")
-	
-	fileVariables := map[string]string{
+
+	fileVariables := map[string]any{
 		"storeName":    "Coffee & More",
 		"date":         "2025-08-07",
 		"time":         "14:30:25",
@@ -78,7 +78,7 @@ Thank you, {{customerName}}!`
 		log.Printf("Failed to render template file (this is expected if file doesn't exist): %v", err)
 	} else {
 		fmt.Printf("Template file rendered successfully! Generated %d bytes\n", len(fileData))
-		
+
 		// Print readable representation
 		fmt.Printf("\nTemplate file readable representation:\n")
 		for _, b := range fileData {

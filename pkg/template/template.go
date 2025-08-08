@@ -4,196 +4,109 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"regexp"
-	"strings"
+	"text/template"
+
+	"github.com/jonasclaes/go-thermal-printer/pkg/escpos"
 )
 
 // Template represents a thermal printer template
 type Template struct {
-	content string
+	tmpl *template.Template
 }
 
 // NewTemplate creates a new template
-func NewTemplate(content string) *Template {
-	return &Template{
-		content: content,
+func NewTemplate(content string) (*Template, error) {
+	tmpl, err := template.New("thermal").Funcs(getTemplateFuncs()).Parse(content)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template: %w", err)
 	}
+
+	return &Template{
+		tmpl: tmpl,
+	}, nil
 }
 
 // Renderer handles the conversion of template to ESCPOS commands
 type Renderer struct {
+	escpos *escpos.ESCPOS
 	buffer *bytes.Buffer
 }
 
-// NewRenderer creates a new template renderer
 func NewRenderer() *Renderer {
+	buffer := &bytes.Buffer{}
+	escpos := escpos.NewESCPOS(buffer)
+
 	return &Renderer{
-		buffer: &bytes.Buffer{},
+		escpos: escpos,
+		buffer: buffer,
+	}
+}
+
+// getTemplateFuncs returns the custom functions available in templates
+func getTemplateFuncs() template.FuncMap {
+	return template.FuncMap{
+		"bold": func(text string) string {
+			return fmt.Sprintf("\x1B\x45\x01%s\x1B\x45\x00", text)
+		},
+		"underline": func(text string) string {
+			return fmt.Sprintf("\x1B\x2D\x01%s\x1B\x2D\x00", text)
+		},
+		"italic": func(text string) string {
+			return fmt.Sprintf("\x1B\x34\x01%s\x1B\x34\x00", text)
+		},
+		"italics": func(text string) string {
+			return fmt.Sprintf("\x1B\x34\x01%s\x1B\x34\x00", text)
+		},
+		"fontb": func(text string) string {
+			return fmt.Sprintf("\x1B\x4D\x01%s\x1B\x4D\x00", text)
+		},
 	}
 }
 
 // Render processes the template and returns the ESCPOS byte array
-func (r *Renderer) Render(template *Template) ([]byte, error) {
+func (r *Renderer) Render(template *Template, data any) ([]byte, error) {
 	r.buffer.Reset()
 
-	// Initialize printer
-	r.writeESCPOSCommand([]byte{0x1B, 0x40}) // Initialize
+	r.escpos.Initialize()
+	r.escpos.SelectCharacterCodePage(escpos.CharacterCodePagePC858)
 
-	r.writeESCPOSCommand([]byte{0x1B, 0x74, 0x0F})
+	// Execute template to a temporary buffer
+	tempBuffer := &bytes.Buffer{}
+	if err := template.tmpl.Execute(tempBuffer, data); err != nil {
+		return nil, fmt.Errorf("failed to execute template: %w", err)
+	}
 
-	r.processContent(template.content)
+	// Process the rendered content for ESCPOS formatting
+	if err := r.processRenderedContent(tempBuffer.String()); err != nil {
+		return nil, err
+	}
 
-	r.writeESCPOSCommand([]byte{0x1B, 0x64, byte(9)})
+	r.escpos.PrintAndFeedPaperNLines(9)
 
 	return r.buffer.Bytes(), nil
 }
 
-// processContent recursively processes template content, handling nested tags
-func (r *Renderer) processContent(content string) ([]byte, error) {
-	for {
-		// Find the next opening tag
-		openTagRegex := regexp.MustCompile(`<(\w+)>`)
-		openMatch := openTagRegex.FindStringSubmatch(content)
-
-		if openMatch == nil {
-			// No more tags, write remaining content
-			r.buffer.WriteString(content)
-			break
-		}
-
-		tagName := strings.ToLower(openMatch[1])
-		openTag := openMatch[0]
-		openIndex := strings.Index(content, openTag)
-
-		// Find the corresponding closing tag
-		closeTag := fmt.Sprintf("</%s>", openMatch[1])
-		closeIndex := r.findMatchingCloseTag(content, openTag, closeTag, openIndex)
-
-		if closeIndex == -1 {
-			return nil, fmt.Errorf("missing closing tag for <%s>", openMatch[1])
-		}
-
-		// Write content before the tag
-		r.buffer.WriteString(content[:openIndex])
-
-		// Apply the formatting command
-		if err := r.applyOpenTag(tagName); err != nil {
-			return nil, err
-		}
-
-		// Process the content inside the tag (this handles nested tags)
-		tagContent := content[openIndex+len(openTag) : closeIndex]
-		innerRenderer := NewRenderer()
-		_, err := innerRenderer.processContent(tagContent)
-		if err != nil {
-			return nil, err
-		}
-		r.buffer.Write(innerRenderer.buffer.Bytes())
-
-		// Apply the closing command
-		if err := r.applyCloseTag(tagName); err != nil {
-			return nil, err
-		}
-
-		// Continue with the rest of the content
-		content = content[closeIndex+len(closeTag):]
-	}
-
-	return r.buffer.Bytes(), nil
-}
-
-// findMatchingCloseTag finds the matching closing tag, accounting for nested tags
-func (r *Renderer) findMatchingCloseTag(content, openTag, closeTag string, startIndex int) int {
-	openCount := 1
-	searchStart := startIndex + len(openTag)
-
-	for openCount > 0 {
-		nextOpen := strings.Index(content[searchStart:], openTag)
-		nextClose := strings.Index(content[searchStart:], closeTag)
-
-		if nextClose == -1 {
-			return -1 // No matching close tag
-		}
-
-		// Adjust indices to be relative to the original content
-		if nextOpen != -1 {
-			nextOpen += searchStart
-		}
-		nextClose += searchStart
-
-		if nextOpen != -1 && nextOpen < nextClose {
-			// Found another opening tag before the closing tag
-			openCount++
-			searchStart = nextOpen + len(openTag)
-		} else {
-			// Found a closing tag
-			openCount--
-			if openCount == 0 {
-				return nextClose
-			}
-			searchStart = nextClose + len(closeTag)
-		}
-	}
-
-	return -1
-}
-
-// applyOpenTag applies the ESCPOS command for opening a tag
-func (r *Renderer) applyOpenTag(tagName string) error {
-	switch tagName {
-	case "bold":
-		// Emphasis mode on
-		r.writeESCPOSCommand([]byte{0x1B, 0x45, 0x01})
-	case "underline":
-		// Underline mode on (1 dot thick)
-		r.writeESCPOSCommand([]byte{0x1B, 0x2D, 0x01})
-	case "italic", "italics":
-		// Italics mode on
-		r.writeESCPOSCommand([]byte{0x1B, 0x34, 0x01})
-	case "fontb":
-		// Select character font B
-		r.writeESCPOSCommand([]byte{0x1B, 0x4D, 0x01})
-	default:
-		return fmt.Errorf("unsupported tag: %s", tagName)
-	}
+// processRenderedContent handles the rendered template content with embedded ESCPOS commands
+func (r *Renderer) processRenderedContent(content string) error {
+	// The template functions have already embedded ESCPOS commands
+	// We just need to write the content and handle the raw ESCPOS bytes
+	r.buffer.WriteString(content)
 	return nil
-}
-
-// applyCloseTag applies the ESCPOS command for closing a tag
-func (r *Renderer) applyCloseTag(tagName string) error {
-	switch tagName {
-	case "bold":
-		// Emphasis mode off
-		r.writeESCPOSCommand([]byte{0x1B, 0x45, 0x00})
-	case "underline":
-		// Underline mode off
-		r.writeESCPOSCommand([]byte{0x1B, 0x2D, 0x00})
-	case "italic", "italics":
-		// Italics mode off
-		r.writeESCPOSCommand([]byte{0x1B, 0x34, 0x00})
-	case "fontb":
-		// Select character font A (default)
-		r.writeESCPOSCommand([]byte{0x1B, 0x4D, 0x00})
-	default:
-		return fmt.Errorf("unsupported tag: %s", tagName)
-	}
-	return nil
-}
-
-// writeESCPOSCommand writes ESCPOS command bytes to the buffer
-func (r *Renderer) writeESCPOSCommand(command []byte) {
-	r.buffer.Write(command)
 }
 
 // RenderToBytes is a convenience function that creates a renderer and renders the template
-func RenderToBytes(templateContent string) ([]byte, error) {
-	template := NewTemplate(templateContent)
+func RenderToBytes(templateContent string, data any) ([]byte, error) {
+	template, err := NewTemplate(templateContent)
+	if err != nil {
+		return nil, err
+	}
+
 	renderer := NewRenderer()
-	return renderer.Render(template)
+	return renderer.Render(template, data)
 }
 
 // RenderTemplateFileWithVariables reads a template file and renders it with variable substitution
-func RenderTemplateFileWithVariables(filePath string, variables map[string]string) ([]byte, error) {
+func RenderTemplateFileWithVariables(filePath string, variables map[string]any) ([]byte, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read template file: %w", err)
@@ -203,31 +116,12 @@ func RenderTemplateFileWithVariables(filePath string, variables map[string]strin
 }
 
 // RenderToBytesWithVariables renders template content with variable substitution
-func RenderToBytesWithVariables(templateContent string, variables map[string]string) ([]byte, error) {
-	// Substitute variables in the template content
-	// Variables are expected to be in the format {{variableName}}
-	content := substituteVariables(templateContent, variables)
+func RenderToBytesWithVariables(templateContent string, variables map[string]any) ([]byte, error) {
+	template, err := NewTemplate(templateContent)
+	if err != nil {
+		return nil, err
+	}
 
-	template := NewTemplate(content)
 	renderer := NewRenderer()
-	return renderer.Render(template)
-}
-
-// substituteVariables replaces {{variableName}} with the corresponding value from the variables map
-func substituteVariables(content string, variables map[string]string) string {
-	// Use regex to find all variables in the format {{variableName}}
-	variableRegex := regexp.MustCompile(`\{\{(\w+)\}\}`)
-
-	return variableRegex.ReplaceAllStringFunc(content, func(match string) string {
-		// Extract the variable name (remove {{ and }})
-		varName := match[2 : len(match)-2]
-
-		// Look up the variable in the map
-		if value, exists := variables[varName]; exists {
-			return value
-		}
-
-		// If variable not found, return the original placeholder
-		return match
-	})
+	return renderer.Render(template, variables)
 }
