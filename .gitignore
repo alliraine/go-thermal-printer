@@ -33,3 +33,5 @@ config.toml
 # Editor/IDE
 # .idea/
 # .vscode/
+
+tmp/
