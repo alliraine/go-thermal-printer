@@ -76,22 +76,12 @@ func (r *Renderer) Render(template *Template, data any) ([]byte, error) {
 		return nil, fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	// Process the rendered content for ESCPOS formatting
-	if err := r.processRenderedContent(tempBuffer.String()); err != nil {
-		return nil, err
-	}
+	r.escpos.Write(tempBuffer.Bytes())
 
 	r.escpos.PrintAndFeedPaperNLines(9)
+	r.escpos.FullCut()
 
 	return r.buffer.Bytes(), nil
-}
-
-// processRenderedContent handles the rendered template content with embedded ESCPOS commands
-func (r *Renderer) processRenderedContent(content string) error {
-	// The template functions have already embedded ESCPOS commands
-	// We just need to write the content and handle the raw ESCPOS bytes
-	r.buffer.WriteString(content)
-	return nil
 }
 
 // RenderToBytes is a convenience function that creates a renderer and renders the template
