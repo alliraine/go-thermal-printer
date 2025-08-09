@@ -119,13 +119,18 @@ jobs:
             sha256sum "$f" > "${f}.sha256"
           done
 
+      - name: List dist contents
+        run: |
+          echo "Dist directory contents:" && ls -la dist
+          echo "Files:" && find dist -maxdepth 1 -type f -printf '%p\n'
+
       - name: Attest binaries (zip)
         if: ${{ matrix.archive == 'zip' }}
         uses: actions/attest-build-provenance@v1
         with:
           subject-path: |
-            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
-            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip.sha256
+            dist/${{ env.APP_NAME }}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
+            dist/${{ env.APP_NAME }}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip.sha256
 
       - name: Upload assets to release (zip)
         if: ${{ matrix.archive == 'zip' }}
@@ -133,8 +138,8 @@ jobs:
         with:
           tag_name: ${{ needs.tag_and_release_main.outputs.tag }}
           files: |
-            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
-            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip.sha256
+            dist/${{ env.APP_NAME }}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
+            dist/${{ env.APP_NAME }}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip.sha256
           append_body: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -144,8 +149,8 @@ jobs:
         uses: actions/attest-build-provenance@v1
         with:
           subject-path: |
-            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
-            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz.sha256
+            dist/${{ env.APP_NAME }}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+            dist/${{ env.APP_NAME }}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz.sha256
 
       - name: Upload assets to release (tar.gz)
         if: ${{ matrix.archive == 'tar.gz' }}
@@ -153,8 +158,8 @@ jobs:
         with:
           tag_name: ${{ needs.tag_and_release_main.outputs.tag }}
           files: |
-            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
-            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz.sha256
+            dist/${{ env.APP_NAME }}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+            dist/${{ env.APP_NAME }}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz.sha256
           append_body: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
