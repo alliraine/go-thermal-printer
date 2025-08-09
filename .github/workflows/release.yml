@@ -3,9 +3,6 @@ name: release
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch: {}
 
 permissions:
@@ -58,41 +55,6 @@ jobs:
           prerelease: false
           generate_release_notes: false
 
-  # For PRs, generate a prerelease with a PR-specific tag and changelog of PR commits.
-  prerelease_for_pr:
-    name: prerelease (PR)
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.meta.outputs.tag }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Compute prerelease tag
-        id: meta
-        run: |
-          pr=${{ github.event.number }}
-          echo "tag=pr-${pr}" >> "$GITHUB_OUTPUT"
-
-      - name: Generate changelog for PR range
-        id: cliff
-        uses: orhun/git-cliff-action@v4
-        with:
-          args: ${{ github.event.pull_request.base.sha }}..${{ github.sha }} -o CHANGELOG.md
-
-      - name: Create GitHub prerelease (skips for forks)
-        if: github.event.pull_request.head.repo.fork == false
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.meta.outputs.tag }}
-          name: PR #${{ github.event.number }} (${{ steps.meta.outputs.tag }})
-          body_path: CHANGELOG.md
-          draft: false
-          prerelease: true
-          generate_release_notes: false
 
   # Build cross-compiled binaries for main releases
   build_and_attach_binaries_main:
@@ -157,112 +119,46 @@ jobs:
             sha256sum "$f" > "${f}.sha256"
           done
 
-      - name: Attest binaries (SLSA provenance)
+      - name: Attest binaries (zip)
+        if: ${{ matrix.archive == 'zip' }}
         uses: actions/attest-build-provenance@v1
         with:
           subject-path: |
-            dist/${APP_NAME}_*.zip
-            dist/${APP_NAME}_*.zip.sha256
-            dist/${APP_NAME}_*.tar.gz
-            dist/${APP_NAME}_*.tar.gz.sha256
+            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
+            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip.sha256
 
-      - name: Upload assets to release
+      - name: Upload assets to release (zip)
+        if: ${{ matrix.archive == 'zip' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.tag_and_release_main.outputs.tag }}
           files: |
-            dist/${APP_NAME}_*.zip
-            dist/${APP_NAME}_*.zip.sha256
-            dist/${APP_NAME}_*.tar.gz
-            dist/${APP_NAME}_*.tar.gz.sha256
-          fail_on_unmatched_files: false
+            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
+            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip.sha256
           append_body: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Build cross-compiled binaries for PR prereleases (non-fork only)
-  build_and_attach_binaries_pr:
-    name: build binaries (PR) ${{ matrix.goos }}-${{ matrix.goarch }}
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
-    needs: [prerelease_for_pr]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-            ext: ""
-            archive: tar.gz
-          - goos: windows
-            goarch: amd64
-            ext: ".exe"
-            archive: zip
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Install zip
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y zip
-
-      - name: Build
-        env:
-          CGO_ENABLED: 0
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: |
-          mkdir -p dist
-          BIN_NAME="${APP_NAME}${{ matrix.ext }}"
-          OUT_DIR="dist/${APP_NAME}_${{ matrix.goos }}_${{ matrix.goarch }}"
-          mkdir -p "$OUT_DIR"
-          go build -trimpath -ldflags "-s -w" -o "$OUT_DIR/$BIN_NAME" ./cmd/go-thermal-printer
-
-      - name: Package
-        run: |
-          OUT_DIR="dist/${APP_NAME}_${{ matrix.goos }}_${{ matrix.goarch }}"
-          cp -v config.example.toml "$OUT_DIR/" || true
-          cp -rv templates "$OUT_DIR/" || true
-          ARCHIVE_BASE="${APP_NAME}_${{ needs.prerelease_for_pr.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}"
-          pushd "$OUT_DIR" >/dev/null
-          if [ "${{ matrix.archive }}" = "zip" ]; then
-            zip -9 "../${ARCHIVE_BASE}.zip" *
-          else
-            tar -czf "../${ARCHIVE_BASE}.tar.gz" *
-          fi
-          popd >/dev/null
-          find dist -maxdepth 1 -type f \( -name "${APP_NAME}_*.zip" -o -name "${APP_NAME}_*.tar.gz" \) -print0 | while IFS= read -r -d '' f; do
-            sha256sum "$f" > "${f}.sha256"
-          done
-
-      - name: Attest binaries (SLSA provenance)
+      - name: Attest binaries (tar.gz)
+        if: ${{ matrix.archive == 'tar.gz' }}
         uses: actions/attest-build-provenance@v1
         with:
           subject-path: |
-            dist/${APP_NAME}_*.zip
-            dist/${APP_NAME}_*.zip.sha256
-            dist/${APP_NAME}_*.tar.gz
-            dist/${APP_NAME}_*.tar.gz.sha256
+            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz.sha256
 
-      - name: Upload assets to release
+      - name: Upload assets to release (tar.gz)
+        if: ${{ matrix.archive == 'tar.gz' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.prerelease_for_pr.outputs.tag }}
+          tag_name: ${{ needs.tag_and_release_main.outputs.tag }}
           files: |
-            dist/${APP_NAME}_*.zip
-            dist/${APP_NAME}_*.zip.sha256
-            dist/${APP_NAME}_*.tar.gz
-            dist/${APP_NAME}_*.tar.gz.sha256
-          fail_on_unmatched_files: false
+            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+            dist/${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz.sha256
           append_body: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
   # Docker build/push for main releases
   docker_build_and_attest_main:
@@ -317,63 +213,3 @@ jobs:
             Image: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.tag_and_release_main.outputs.tag }}`
             Digest: `${{ steps.build.outputs.digest }}`
 
-  # Docker build/push for PR prereleases (non-fork only)
-  docker_build_and_attest_pr:
-    name: docker (PR) build + push + attest
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
-    needs: [prerelease_for_pr]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push image
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64
-          push: true
-          provenance: false
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prerelease_for_pr.outputs.tag }}
-
-      - name: Create image attestation (SLSA provenance)
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
-
-      - name: Add container image info to prerelease notes
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.prerelease_for_pr.outputs.tag }}
-          append_body: true
-          body: |
-            
-            Image: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prerelease_for_pr.outputs.tag }}`
-            Digest: `${{ steps.build.outputs.digest }}`
-
-  # For PRs coming from forks, show a note and skip publishing
-  pr_fork_build_only:
-    name: build only (PR fork)
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
-    runs-on: ubuntu-latest
-    steps:
-      - name: Note
-        run: |
-          echo "PR is from a fork; skipping release creation and publishing due to token permissions."
