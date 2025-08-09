@@ -1,0 +1,270 @@
+name: release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write       # create releases and upload assets
+  packages: write       # push images to GHCR
+  attestations: write   # upload build attestations
+  id-token: write       # required for provenance attestations
+
+env:
+  APP_NAME: go-thermal-printer
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Create a semver tag and a changelog from Conventional Commits on main
+  tag_and_release_main:
+    name: tag + changelog (main)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.new_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Auto-tag (Conventional Commits)
+        id: tag
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: patch
+          release_branches: main
+          tag_prefix: v
+
+      - name: Generate changelog (latest)
+        id: cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          args: --latest -o CHANGELOG.md
+
+      - name: Create GitHub release (stable)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.new_tag }}
+          name: ${{ steps.tag.outputs.new_tag }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+
+  # For PRs, generate a prerelease with a PR-specific tag and changelog of PR commits.
+  prerelease_for_pr:
+    name: prerelease (PR)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute prerelease tag
+        id: meta
+        run: |
+          pr=${{ github.event.number }}
+          echo "tag=pr-${pr}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate changelog for PR range
+        id: cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          args: ${{ github.event.pull_request.base.sha }}..${{ github.sha }} -o CHANGELOG.md
+
+      - name: Create GitHub prerelease (skips for forks)
+        if: github.event.pull_request.head.repo.fork == false
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: PR #${{ github.event.number }} (${{ steps.meta.outputs.tag }})
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: true
+          generate_release_notes: false
+
+  # Build cross-compiled binaries (Linux/Windows) and attach to the release.
+  build_and_attach_binaries:
+    name: build binaries (${{ matrix.goos }}-${{ matrix.goarch }})
+    needs: [tag_and_release_main, prerelease_for_pr]
+    if: needs.tag_and_release_main.result == 'success' || needs.prerelease_for_pr.result == 'success'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ""
+            archive: tar.gz
+          - goos: windows
+            goarch: amd64
+            ext: ".exe"
+            archive: zip
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install zip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip
+
+      - name: Compute release tag
+        id: picktag
+        run: |
+          # Prefer main tag, else PR tag
+          tag="${{ needs.tag_and_release_main.outputs.tag }}"
+          if [ -z "$tag" ]; then tag="${{ needs.prerelease_for_pr.outputs.tag }}"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist
+          BIN_NAME="${APP_NAME}${{ matrix.ext }}"
+          OUT_DIR="dist/${APP_NAME}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          mkdir -p "$OUT_DIR"
+          go build -trimpath -ldflags "-s -w" -o "$OUT_DIR/$BIN_NAME" ./cmd/go-thermal-printer
+
+      - name: Package
+        run: |
+          OUT_DIR="dist/${APP_NAME}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          # Include config and templates in the archive
+          cp -v config.example.toml "$OUT_DIR/" || true
+          cp -rv templates "$OUT_DIR/" || true
+          ARCHIVE_BASE="${APP_NAME}_${{ steps.picktag.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          pushd "$OUT_DIR" >/dev/null
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            zip -9 "../${ARCHIVE_BASE}.zip" *
+          else
+            tar -czf "../${ARCHIVE_BASE}.tar.gz" *
+          fi
+          popd >/dev/null
+          # Checksums
+          find dist -maxdepth 1 -type f \( -name "${APP_NAME}_*.zip" -o -name "${APP_NAME}_*.tar.gz" \) -print0 | while IFS= read -r -d '' f; do
+            sha256sum "$f" > "${f}.sha256"
+          done
+
+      - name: Attest binaries (SLSA provenance)
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: |
+            dist/${APP_NAME}_*.zip
+            dist/${APP_NAME}_*.zip.sha256
+            dist/${APP_NAME}_*.tar.gz
+            dist/${APP_NAME}_*.tar.gz.sha256
+
+      - name: Upload assets to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.picktag.outputs.tag }}
+          files: |
+            dist/${APP_NAME}_*.zip
+            dist/${APP_NAME}_*.zip.sha256
+            dist/${APP_NAME}_*.tar.gz
+            dist/${APP_NAME}_*.tar.gz.sha256
+          fail_on_unmatched_files: false
+          append_body: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Build and push Docker image to GHCR, then attest
+  docker_build_and_attest:
+    name: docker build + push + attest
+    needs: [tag_and_release_main, prerelease_for_pr]
+    if: needs.tag_and_release_main.result == 'success' || needs.prerelease_for_pr.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute release tag
+        id: picktag
+        run: |
+          tag="${{ needs.tag_and_release_main.outputs.tag }}"
+          if [ -z "$tag" ]; then tag="${{ needs.prerelease_for_pr.outputs.tag }}"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Compute docker tags
+        id: dockertags
+        run: |
+          TAG="${{ steps.picktag.outputs.tag }}"
+          if [[ "$TAG" == v* ]]; then
+            # main release: include latest
+            echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> "$GITHUB_OUTPUT"
+          else
+            # prerelease: only PR tag
+            echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false # we'll create attestations separately
+          tags: ${{ steps.dockertags.outputs.tags }}
+
+      - name: Create image attestation (SLSA provenance)
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Add container image info to release notes
+        if: needs.tag_and_release_main.result == 'success' || needs.prerelease_for_pr.result == 'success'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.picktag.outputs.tag }}
+          append_body: true
+          body: |
+            
+            Image: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.picktag.outputs.tag }}`
+            Digest: `${{ steps.build.outputs.digest }}`
+
+  # For PRs coming from forks, we still build binaries and images, but skip publishing.
+  pr_fork_build_only:
+    name: build only (PR fork)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Note
+        run: |
+          echo "PR is from a fork; skipping release creation and publishing due to token permissions. Builds ran in other jobs won't publish."
