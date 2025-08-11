@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jonasclaes/go-thermal-printer/pkg/common"
 	"github.com/jonasclaes/go-thermal-printer/pkg/service"
@@ -30,7 +32,7 @@ func (m *ApiKeyMiddleware) Add() gin.HandlerFunc {
 }
 
 func (m *ApiKeyMiddleware) Verify(c *gin.Context) error {
-	apiKey := c.GetHeader("X-Api-Key")
+	apiKey := strings.TrimSpace(c.GetHeader("X-Api-Key"))
 
 	if apiKey != m.configService.GetServerConfig().ApiKey {
 		return &common.InvalidAPIKeyError{}
