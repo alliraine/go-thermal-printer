@@ -75,6 +75,28 @@ Until a first stable release is cut, treat `main` (or the feature branch you bui
 
 ## 📦 Endpoints
 
+### Authentication: API Key
+
+All API endpoints require an API key for access. Include the `X-Api-Key` header in your requests:
+
+```http
+X-Api-Key: <your-api-key-here>
+```
+
+The API key is configured in your TOML file under the `[server]` section as `api_key`.
+
+Example `config.toml`:
+
+```toml
+[server]
+host = "127.0.0.1"
+port = 8080
+api_key = "your-secret-key"
+```
+
+If the header is missing or invalid, requests will be rejected with an authentication error.
+
+
 Base URL: `http://<host>:<port>` (default `http://127.0.0.1:8080`)
 
 | Method | Path | Description |
@@ -95,6 +117,7 @@ GET /health
 Printer status:
 ```http
 GET /api/v1/printer/status
+X-Api-Key: <your-api-key-here>
 200 OK
 {
    "printerStatus": 0,
@@ -107,6 +130,7 @@ GET /api/v1/printer/status
 Raw print (data is Base64 in example):
 ```http
 POST /api/v1/printer/print
+X-Api-Key: <your-api-key-here>
 Content-Type: application/json
 
 {
@@ -117,6 +141,7 @@ Content-Type: application/json
 Template print:
 ```http
 POST /api/v1/printer/print-template
+X-Api-Key: <your-api-key-here>
 Content-Type: application/json
 
 {

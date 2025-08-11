@@ -11,13 +11,15 @@ func initRouter(svc *services) (*gin.Engine, error) {
 
 	router.Use(middleware.NewErrorHandlerMiddleware().Add())
 
+	apiKeyMiddleware := middleware.NewApiKeyMiddleware(svc.configService).Add()
+
 	rootGroup := router.Group("/")
 
 	{
 		root := router.Group("/")
 		controller.NewHealthController(rootGroup)
 
-		api := root.Group("/api")
+		api := root.Group("/api", apiKeyMiddleware)
 		v1 := api.Group("/v1")
 		controller.NewPrinterController(v1, svc.printerService)
 	}
