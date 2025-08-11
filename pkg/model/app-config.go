@@ -6,8 +6,9 @@ type AppConfig struct {
 }
 
 type ServerConfig struct {
-	Host string `toml:"host" default:"0.0.0.0"`
-	Port int    `toml:"port" default:"8080"`
+	Host   string `toml:"host" default:"0.0.0.0"`
+	Port   int    `toml:"port" default:"8080"`
+	ApiKey string `toml:"api_key" default:""`
 }
 
 type PrinterConfig struct {
