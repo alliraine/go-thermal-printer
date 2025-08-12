@@ -2,14 +2,14 @@ name: release
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch: {}
 
 permissions:
-  contents: write       # create releases and upload assets
-  packages: write       # push images to GHCR
-  attestations: write   # upload build attestations
-  id-token: write       # required for provenance attestations
+  contents: write # create releases and upload assets
+  packages: write # push images to GHCR
+  attestations: write # upload build attestations
+  id-token: write # required for provenance attestations
 
 env:
   APP_NAME: go-thermal-printer
@@ -43,7 +43,11 @@ jobs:
         id: cliff
         uses: orhun/git-cliff-action@v4
         with:
-          args: --latest -o CHANGELOG.md
+          args: --latest --verbose
+          config: cliff.toml
+        env:
+          OUTPUT: CHANGELOG.md
+          GITHUB_REPO: ${{ github.repository }}
 
       - name: Create GitHub release (stable)
         uses: softprops/action-gh-release@v2
@@ -54,7 +58,6 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: false
-
 
   # Build cross-compiled binaries for main releases
   build_and_attach_binaries_main:
@@ -164,7 +167,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
   # Docker build/push for main releases
   docker_build_and_attest_main:
     name: docker (main) build + push + attest
@@ -214,7 +216,6 @@ jobs:
           tag_name: ${{ needs.tag_and_release_main.outputs.tag }}
           append_body: true
           body: |
-            
+
             Image: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.tag_and_release_main.outputs.tag }}`
             Digest: `${{ steps.build.outputs.digest }}`
-

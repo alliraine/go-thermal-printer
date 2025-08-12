@@ -1,0 +1,6 @@
+# git-cliff configuration for Conventional Commits
+# Docs: https://git-cliff.org/docs
+
+[git]
+conventional_commits = true
+filter_unconventional = true
