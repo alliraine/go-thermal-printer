@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/jonasclaes/go-thermal-printer/pkg/escpos"
 	"github.com/jonasclaes/go-thermal-printer/pkg/template"
@@ -27,7 +29,7 @@ type StatusRequest struct {
 }
 
 type PrintService struct {
-	port        serial.Port
+	port        io.ReadWriter
 	printer     *escpos.ESCPOS
 	printQueue  chan PrintJob
 	statusQueue chan StatusRequest
@@ -68,9 +70,17 @@ func NewPrintService(configService *ConfigService) (*PrintService, error) {
 		mode.Parity = serial.NoParity
 	}
 
-	port, err := serial.Open(printerConfig.Port, mode)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open serial port: %w", err)
+	var port io.ReadWriter
+
+	if configService.GetConfig().TestMode {
+		var buff bytes.Buffer
+		port = &buff
+	} else {
+		_port, err := serial.Open(printerConfig.Port, mode)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open serial port: %w", err)
+		}
+		port = _port
 	}
 
 	printer := escpos.NewESCPOS(port)
@@ -221,5 +231,10 @@ func (ps *PrintService) PrintTemplateWithVariables(ctx context.Context, template
 
 func (ps *PrintService) Close() error {
 	close(ps.quit)
-	return ps.port.Close()
+
+	if serialPort, ok := ps.port.(serial.Port); ok {
+		return serialPort.Close()
+	}
+
+	return nil
 }
