@@ -113,13 +113,14 @@ jobs:
           OUT_DIR="dist/${APP_NAME}_${{ matrix.goos }}_${{ matrix.goarch }}"
           # Include config and templates in the archive
           cp -v config.example.toml "$OUT_DIR/" || true
-          cp -rv templates "$OUT_DIR/" || true
+          mkdir -p "$OUT_DIR/templates"
+          cp -v templates/* "$OUT_DIR/templates/" || true
           ARCHIVE_BASE="${APP_NAME}_${{ needs.tag_and_release_main.outputs.tag }}_${{ matrix.goos }}_${{ matrix.goarch }}"
           pushd "$OUT_DIR" >/dev/null
           if [ "${{ matrix.archive }}" = "zip" ]; then
-            zip -9 "../${ARCHIVE_BASE}.zip" *
+            zip -9 -r "../${ARCHIVE_BASE}.zip" .
           else
-            tar -czf "../${ARCHIVE_BASE}.tar.gz" *
+            tar -czf "../${ARCHIVE_BASE}.tar.gz" .
           fi
           popd >/dev/null
           # Checksums
