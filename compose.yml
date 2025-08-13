@@ -1,5 +1,6 @@
 services:
   go-thermal-printer:
+    image: ghcr.io/jonasclaes/go-thermal-printer:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,3 +12,4 @@ services:
       - /dev/ttyUSB0:/dev/ttyUSB0
     volumes:
       - ./config.docker.toml:/app/config.toml
+
