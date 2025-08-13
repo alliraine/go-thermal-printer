@@ -1,17 +1,26 @@
-FROM golang:1.24.6-alpine AS builder
+# syntax=docker/dockerfile:1.7
+
+FROM --platform=$BUILDPLATFORM golang:1.24.6-alpine AS builder
 
 WORKDIR /build
 
 # Install build dependencies
 # RUN apk add --no-cache git
 
+ARG TARGETOS TARGETARCH
+
 COPY go.mod go.sum ./
 
-RUN go mod download
+# Cache Go modules
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o go-thermal-printer ./cmd/go-thermal-printer/main.go
+# Build for target OS/ARCH while running on the build platform to avoid emulation
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -trimpath -ldflags "-s -w" -o go-thermal-printer ./cmd/go-thermal-printer
 
 # Final stage
 FROM alpine:latest

@@ -213,6 +213,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           provenance: false
+          cache-from: type=gha,scope=${{ env.APP_NAME }}
+          cache-to: type=gha,mode=max,scope=${{ env.APP_NAME }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.tag_and_release_main.outputs.tag }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
