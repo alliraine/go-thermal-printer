@@ -1,0 +1,150 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Thermal Printer API written in Go, which uses ESC/POS commands.",
+        "title": "Thermal Printer API",
+        "contact": {},
+        "version": "1.0.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/api/v1/printer/print": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Print an array of bytes to the printer, with ESC/POS commands.",
+                "tags": [
+                    "Printer"
+                ],
+                "summary": "Print an array of bytes",
+                "parameters": [
+                    {
+                        "description": "Printer data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/PrinterPrintDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    }
+                }
+            }
+        },
+        "/api/v1/printer/print-template": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Print a template with arbitrary data.",
+                "tags": [
+                    "Printer"
+                ],
+                "summary": "Print a template",
+                "parameters": [
+                    {
+                        "description": "Printer data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/PrinterPrintTemplateDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    }
+                }
+            }
+        },
+        "/api/v1/printer/status": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Query the printer status through the configured port.",
+                "tags": [
+                    "Printer"
+                ],
+                "summary": "Query printer status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/PrinterStatusDto"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "PrinterPrintDto": {
+            "type": "object",
+            "required": [
+                "data"
+            ],
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "PrinterPrintTemplateDto": {
+            "type": "object",
+            "required": [
+                "templateFile"
+            ],
+            "properties": {
+                "templateFile": {
+                    "type": "string"
+                },
+                "variables": {
+                    "type": "object",
+                    "additionalProperties": {}
+                }
+            }
+        },
+        "PrinterStatusDto": {
+            "type": "object",
+            "properties": {
+                "continuousPaperStatus": {
+                    "type": "integer"
+                },
+                "errorStatus": {
+                    "type": "integer"
+                },
+                "offlineStatus": {
+                    "type": "integer"
+                },
+                "printerStatus": {
+                    "type": "integer"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "X-API-Key",
+            "in": "header"
+        }
+    }
+}

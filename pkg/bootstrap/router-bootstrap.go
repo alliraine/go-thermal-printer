@@ -4,10 +4,20 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jonasclaes/go-thermal-printer/pkg/controller"
 	"github.com/jonasclaes/go-thermal-printer/pkg/middleware"
+
+	// gin-swagger middleware
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	// swagger embed files
+	swaggerFiles "github.com/swaggo/files"
+
+	_ "github.com/jonasclaes/go-thermal-printer/pkg/docs"
 )
 
 func initRouter(svc *services) (*gin.Engine, error) {
 	router := gin.Default()
+
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	router.Use(middleware.NewErrorHandlerMiddleware().Add())
 

@@ -1,0 +1,94 @@
+basePath: /
+definitions:
+  PrinterPrintDto:
+    properties:
+      data:
+        items:
+          type: integer
+        type: array
+    required:
+    - data
+    type: object
+  PrinterPrintTemplateDto:
+    properties:
+      templateFile:
+        type: string
+      variables:
+        additionalProperties: {}
+        type: object
+    required:
+    - templateFile
+    type: object
+  PrinterStatusDto:
+    properties:
+      continuousPaperStatus:
+        type: integer
+      errorStatus:
+        type: integer
+      offlineStatus:
+        type: integer
+      printerStatus:
+        type: integer
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Thermal Printer API written in Go, which uses ESC/POS commands.
+  title: Thermal Printer API
+  version: 1.0.0
+paths:
+  /api/v1/printer/print:
+    post:
+      description: Print an array of bytes to the printer, with ESC/POS commands.
+      parameters:
+      - description: Printer data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PrinterPrintDto'
+      responses:
+        "201":
+          description: Created
+      security:
+      - ApiKeyAuth: []
+      summary: Print an array of bytes
+      tags:
+      - Printer
+  /api/v1/printer/print-template:
+    post:
+      description: Print a template with arbitrary data.
+      parameters:
+      - description: Printer data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/PrinterPrintTemplateDto'
+      responses:
+        "201":
+          description: Created
+      security:
+      - ApiKeyAuth: []
+      summary: Print a template
+      tags:
+      - Printer
+  /api/v1/printer/status:
+    get:
+      description: Query the printer status through the configured port.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/PrinterStatusDto'
+      security:
+      - ApiKeyAuth: []
+      summary: Query printer status
+      tags:
+      - Printer
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: X-API-Key
+    type: apiKey
+swagger: "2.0"
