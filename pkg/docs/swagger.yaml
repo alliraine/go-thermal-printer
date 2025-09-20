@@ -3,9 +3,7 @@ definitions:
   PrinterPrintDto:
     properties:
       data:
-        items:
-          type: integer
-        type: array
+        type: string
     required:
     - data
     type: object

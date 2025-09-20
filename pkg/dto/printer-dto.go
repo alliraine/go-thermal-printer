@@ -8,7 +8,7 @@ type PrinterStatusDto struct {
 }
 
 type PrinterPrintDto struct {
-	Data []byte `json:"data" binding:"required"`
+	Data string `json:"data" binding:"required"`
 }
 
 type PrinterPrintTemplateDto struct {
