@@ -60,6 +60,9 @@ func getTemplateFuncs() template.FuncMap {
 		"fontb": func(text string) string {
 			return fmt.Sprintf("\x1B\x4D\x01%s\x1B\x4D\x00", text)
 		},
+		"center": func(text string) string { return fmt.Sprintf("\x1B\x40\x1B\x61\x01%s", text) },
+		"left":   func(text string) string { return fmt.Sprintf("\x1B\x40\x1B\x61\x00%s", text) },
+		"right":  func(text string) string { return fmt.Sprintf("\x1B\x40\x1B\x61\x02%s", text) },
 	}
 }
 
