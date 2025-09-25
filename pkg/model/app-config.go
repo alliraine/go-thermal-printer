@@ -4,6 +4,7 @@ type AppConfig struct {
 	Server   ServerConfig  `toml:"server"`
 	Printer  PrinterConfig `toml:"printer"`
 	TestMode bool          `toml:"test_mode" default:"false"`
+	USBMode  bool          `toml:"usb_mode" default:"false"`
 }
 
 type ServerConfig struct {

@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"strings"
 
 	"github.com/jonasclaes/go-thermal-printer/pkg/escpos"
 	"github.com/jonasclaes/go-thermal-printer/pkg/template"
@@ -76,11 +78,20 @@ func NewPrintService(configService *ConfigService) (*PrintService, error) {
 		var buff bytes.Buffer
 		port = &buff
 	} else {
-		_port, err := serial.Open(printerConfig.Port, mode)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open serial port: %w", err)
+		path := printerConfig.Port
+		if strings.HasPrefix(path, "/dev/usb") || strings.HasPrefix(path, "/dev/lp") {
+			file, err := os.OpenFile(path, os.O_RDWR, 0)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open printer device file: %w", err)
+			}
+			port = file
+		} else {
+			_port, err := serial.Open(path, mode)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open serial port: %w", err)
+			}
+			port = _port
 		}
-		port = _port
 	}
 
 	printer := escpos.NewESCPOS(port)
@@ -231,10 +242,8 @@ func (ps *PrintService) PrintTemplateWithVariables(ctx context.Context, template
 
 func (ps *PrintService) Close() error {
 	close(ps.quit)
-
-	if serialPort, ok := ps.port.(serial.Port); ok {
-		return serialPort.Close()
+	if c, ok := ps.port.(interface{ Close() error }); ok {
+		return c.Close()
 	}
-
 	return nil
 }
