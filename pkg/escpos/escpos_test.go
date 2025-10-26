@@ -63,3 +63,46 @@ func TestESCPOSWriteDetectsStalledWriter(t *testing.T) {
 		t.Fatalf("expected io.ErrShortWrite, got %v", err)
 	}
 }
+
+type failingStatusRW struct {
+	writeErr error
+	readErr  error
+	payload  []byte
+}
+
+func (f *failingStatusRW) Write(p []byte) (int, error) {
+	if f.writeErr != nil {
+		return 0, f.writeErr
+	}
+	return len(p), nil
+}
+
+func (f *failingStatusRW) Read(p []byte) (int, error) {
+	if f.readErr != nil {
+		return 0, f.readErr
+	}
+	if len(f.payload) == 0 {
+		return 0, io.EOF
+	}
+	n := copy(p, f.payload)
+	f.payload = f.payload[n:]
+	return n, nil
+}
+
+func TestESCPOSStatusReturnsWriteError(t *testing.T) {
+	want := errors.New("boom write")
+	esc := NewESCPOS(&failingStatusRW{writeErr: want})
+
+	if _, err := esc.status(0x01); !errors.Is(err, want) {
+		t.Fatalf("expected wrapped write error, got %v", err)
+	}
+}
+
+func TestESCPOSStatusReturnsReadError(t *testing.T) {
+	want := errors.New("boom read")
+	esc := NewESCPOS(&failingStatusRW{payload: []byte{0x00}, readErr: want})
+
+	if _, err := esc.status(0x01); !errors.Is(err, want) {
+		t.Fatalf("expected wrapped read error, got %v", err)
+	}
+}
