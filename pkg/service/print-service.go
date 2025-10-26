@@ -3,8 +3,10 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -130,10 +132,35 @@ func (ps *PrintService) worker() {
 
 // print sends data to the printer
 func (ps *PrintService) print(data []byte) error {
-	_, err := ps.printer.Write(data)
+	if len(data) == 0 {
+		log.Printf("print-service: received empty print job")
+		return nil
+	}
+
+	previewLen := len(data)
+	if previewLen > 64 {
+		previewLen = 64
+	}
+	tailLen := len(data)
+	if tailLen > 64 {
+		tailLen = 64
+	}
+	log.Printf(
+		"print-service: writing %d bytes (head=%s tail=%s)",
+		len(data),
+		hex.EncodeToString(data[:previewLen]),
+		hex.EncodeToString(data[len(data)-tailLen:]),
+	)
+
+	written, err := ps.printer.Write(data)
 	if err != nil {
 		return fmt.Errorf("failed to write to printer: %w", err)
 	}
+	if written != len(data) {
+		return fmt.Errorf("failed to write to printer: short write %d/%d", written, len(data))
+	}
+
+	log.Printf("print-service: write complete")
 
 	return nil
 }

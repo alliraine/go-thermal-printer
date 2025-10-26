@@ -1,5 +1,8 @@
-{{center "================================"}
-{{center {{bold .title}} }}
+{{reset}}
+{{center "================================"}}
+{{center (doubleSize (bold (wrap .title)))}}
 
-{{center .msg}}
-{{center "================================"}
+{{center (wrap .msg)}}
+{{center "================================"}}
+
+{{feed 2}}

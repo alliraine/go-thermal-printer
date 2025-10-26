@@ -1,0 +1,18 @@
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /swagger/*any             --> github.com/swaggo/gin-swagger.CustomWrapHandler.func1 (3 handlers)
+[GIN-debug] GET    /health                   --> github.com/jonasclaes/go-thermal-printer/pkg/controller.(*HealthController).getHealthStatusHandler-fm (4 handlers)
+[GIN-debug] GET    /api/v1/printer/status    --> github.com/jonasclaes/go-thermal-printer/pkg/controller.(*PrinterController).getPrinterStatusHandler-fm (5 handlers)
+[GIN-debug] POST   /api/v1/printer/print     --> github.com/jonasclaes/go-thermal-printer/pkg/controller.(*PrinterController).postPrinterPrintHandler-fm (5 handlers)
+[GIN-debug] POST   /api/v1/printer/print-template --> github.com/jonasclaes/go-thermal-printer/pkg/controller.(*PrinterController).postPrinterPrintTemplateHandler-fm (5 handlers)
+[GIN-debug] POST   /api/v1/printer/print-image --> github.com/jonasclaes/go-thermal-printer/pkg/controller.(*PrinterController).PrintImage-fm (5 handlers)
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://pkg.go.dev/github.com/gin-gonic/gin#readme-don-t-trust-all-proxies for details.
+[GIN-debug] Listening and serving HTTP on 0.0.0.0:8080
+[GIN-debug] [ERROR] listen tcp 0.0.0.0:8080: bind: address already in use
+2025/09/29 01:58:34 failed to bootstrap application: failed to start server: listen tcp 0.0.0.0:8080: bind: address already in use
+exit status 1

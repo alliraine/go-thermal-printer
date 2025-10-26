@@ -1,10 +1,12 @@
 package controller
 
 import (
+	"encoding/base64"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jonasclaes/go-thermal-printer/pkg/dto"
+	"github.com/jonasclaes/go-thermal-printer/pkg/escpos"
 	"github.com/jonasclaes/go-thermal-printer/pkg/service"
 )
 
@@ -22,6 +24,8 @@ func NewPrinterController(group *gin.RouterGroup, printerService *service.Printe
 		printerGroup.GET("/status", controller.getPrinterStatusHandler)
 		printerGroup.POST("/print", controller.postPrinterPrintHandler)
 		printerGroup.POST("/print-template", controller.postPrinterPrintTemplateHandler)
+		printerGroup.POST("/print-image", controller.PrintImage)
+
 	}
 }
 
@@ -90,4 +94,26 @@ func (pc *PrinterController) postPrinterPrintTemplateHandler(c *gin.Context) {
 	}
 
 	c.Status(http.StatusCreated)
+}
+
+// PrintImage: POST /api/v1/printer/print-image
+// Body: { "imageBase64": "<...>", "maxWidthDots": 384 }
+func (pc *PrinterController) PrintImage(c *gin.Context) {
+	var req dto.PrintImageRequest
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload: " + err.Error()})
+		return
+	}
+	bytes, err := escpos.EncodeImageToRasterBytes(req.ImageBase64, req.MaxWidthDots)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to convert image: " + err.Error()})
+		return
+	}
+
+	payload := dto.PrinterPrintDto{Data: base64.StdEncoding.EncodeToString(bytes)}
+	if err := pc.printerService.Print(c.Request.Context(), payload); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "print failed: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "bytesWritten": len(bytes)})
 }
