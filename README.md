@@ -197,7 +197,13 @@ baud_rate = 19200
 data_bits = 8
 stop_bits = 1            # 1 or 2
 parity = 0               # 0=None,1=Odd,2=Even,3=Mark,4=Space
+usb_mode = false         # Set true to stream bytes to a USB printer node (status polling disabled)
 ```
+
+**USB mode** streams ESC/POS bytes directly to a raw USB printer device (for example `/dev/usb/lp0`).
+When enabled (`usb_mode = true`) the service bypasses the serial driver entirely and uses the
+USB transport in `pkg/escpos/usb.go`. Printer status queries require a bidirectional serial
+connection, so they return an error while USB mode is active.
 
 ### Selecting the Serial Port
 

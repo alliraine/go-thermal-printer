@@ -15,6 +15,13 @@ import (
 	"go.bug.st/serial"
 )
 
+var (
+	serialOpenFunc      = serial.Open
+	usbTransportFactory = func(path string) (escpos.Transport, error) {
+		return escpos.NewUSBTransport(path)
+	}
+)
+
 type PrintJob struct {
 	Data     []byte
 	Response chan error
@@ -33,15 +40,33 @@ type StatusRequest struct {
 }
 
 type PrintService struct {
-	port        io.ReadWriter
-	printer     *escpos.ESCPOS
-	printQueue  chan PrintJob
-	statusQueue chan StatusRequest
-	quit        chan struct{}
+	port            io.ReadWriter
+	printer         *escpos.ESCPOS
+	printQueue      chan PrintJob
+	statusQueue     chan StatusRequest
+	quit            chan struct{}
+	statusSupported bool
+}
+
+type usbReadWriter struct {
+	transport escpos.Transport
+}
+
+func (u *usbReadWriter) Write(p []byte) (int, error) {
+	return u.transport.Write(p)
+}
+
+func (u *usbReadWriter) Read(p []byte) (int, error) {
+	return 0, fmt.Errorf("printer status is not supported in USB mode")
+}
+
+func (u *usbReadWriter) Close() error {
+	return u.transport.Close()
 }
 
 func NewPrintService(configService *ConfigService) (*PrintService, error) {
 	printerConfig := configService.GetPrinterConfig()
+	appConfig := configService.GetConfig()
 
 	mode := &serial.Mode{
 		BaudRate: printerConfig.BaudRate,
@@ -74,36 +99,49 @@ func NewPrintService(configService *ConfigService) (*PrintService, error) {
 		mode.Parity = serial.NoParity
 	}
 
-	var port io.ReadWriter
+	var (
+		port            io.ReadWriter
+		statusSupported bool
+	)
 
-	if configService.GetConfig().TestMode {
+	if appConfig.TestMode {
 		var buff bytes.Buffer
 		port = &buff
 	} else {
 		path := printerConfig.Port
-		if strings.HasPrefix(path, "/dev/usb") || strings.HasPrefix(path, "/dev/lp") {
-			file, err := os.OpenFile(path, os.O_RDWR, 0)
+		if appConfig.USBMode {
+			transport, err := usbTransportFactory(path)
 			if err != nil {
-				return nil, fmt.Errorf("failed to open printer device file: %w", err)
+				return nil, fmt.Errorf("failed to open usb printer: %w", err)
 			}
-			port = file
+			port = &usbReadWriter{transport: transport}
 		} else {
-			_port, err := serial.Open(path, mode)
-			if err != nil {
-				return nil, fmt.Errorf("failed to open serial port: %w", err)
+			if strings.HasPrefix(path, "/dev/usb") || strings.HasPrefix(path, "/dev/lp") {
+				file, err := os.OpenFile(path, os.O_RDWR, 0)
+				if err != nil {
+					return nil, fmt.Errorf("failed to open printer device file: %w", err)
+				}
+				port = file
+			} else {
+				_port, err := serialOpenFunc(path, mode)
+				if err != nil {
+					return nil, fmt.Errorf("failed to open serial port: %w", err)
+				}
+				port = _port
 			}
-			port = _port
+			statusSupported = true
 		}
 	}
 
 	printer := escpos.NewESCPOS(port)
 
 	pm := &PrintService{
-		port:        port,
-		printer:     printer,
-		printQueue:  make(chan PrintJob, 100),
-		statusQueue: make(chan StatusRequest, 10),
-		quit:        make(chan struct{}),
+		port:            port,
+		printer:         printer,
+		printQueue:      make(chan PrintJob, 100),
+		statusQueue:     make(chan StatusRequest, 10),
+		quit:            make(chan struct{}),
+		statusSupported: statusSupported,
 	}
 
 	// Start the worker goroutine
@@ -167,6 +205,12 @@ func (ps *PrintService) print(data []byte) error {
 
 // status retrieves the printer status
 func (ps *PrintService) status() StatusResponse {
+	if !ps.statusSupported {
+		return StatusResponse{
+			Error: fmt.Errorf("printer status is not supported for the configured transport"),
+		}
+	}
+
 	printerStatus, err := ps.printer.PrinterStatus()
 	if err != nil {
 		return StatusResponse{
