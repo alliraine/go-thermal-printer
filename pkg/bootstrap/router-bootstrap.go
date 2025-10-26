@@ -11,10 +11,12 @@ import (
 	// swagger embed files
 	swaggerFiles "github.com/swaggo/files"
 
-	_ "github.com/jonasclaes/go-thermal-printer/pkg/docs"
+	docs "github.com/jonasclaes/go-thermal-printer/pkg/docs"
 )
 
 func initRouter(svc *services) (*gin.Engine, error) {
+	docs.SwaggerInfo.Host = svc.configService.GetServerConfig().SwaggerHost
+
 	router := gin.Default()
 
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

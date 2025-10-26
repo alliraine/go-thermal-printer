@@ -3,8 +3,12 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
+	"os"
+	"strings"
 
 	"github.com/jonasclaes/go-thermal-printer/pkg/escpos"
 	"github.com/jonasclaes/go-thermal-printer/pkg/template"
@@ -76,11 +80,20 @@ func NewPrintService(configService *ConfigService) (*PrintService, error) {
 		var buff bytes.Buffer
 		port = &buff
 	} else {
-		_port, err := serial.Open(printerConfig.Port, mode)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open serial port: %w", err)
+		path := printerConfig.Port
+		if strings.HasPrefix(path, "/dev/usb") || strings.HasPrefix(path, "/dev/lp") {
+			file, err := os.OpenFile(path, os.O_RDWR, 0)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open printer device file: %w", err)
+			}
+			port = file
+		} else {
+			_port, err := serial.Open(path, mode)
+			if err != nil {
+				return nil, fmt.Errorf("failed to open serial port: %w", err)
+			}
+			port = _port
 		}
-		port = _port
 	}
 
 	printer := escpos.NewESCPOS(port)
@@ -119,10 +132,35 @@ func (ps *PrintService) worker() {
 
 // print sends data to the printer
 func (ps *PrintService) print(data []byte) error {
-	_, err := ps.printer.Write(data)
+	if len(data) == 0 {
+		log.Printf("print-service: received empty print job")
+		return nil
+	}
+
+	previewLen := len(data)
+	if previewLen > 64 {
+		previewLen = 64
+	}
+	tailLen := len(data)
+	if tailLen > 64 {
+		tailLen = 64
+	}
+	log.Printf(
+		"print-service: writing %d bytes (head=%s tail=%s)",
+		len(data),
+		hex.EncodeToString(data[:previewLen]),
+		hex.EncodeToString(data[len(data)-tailLen:]),
+	)
+
+	written, err := ps.printer.Write(data)
 	if err != nil {
 		return fmt.Errorf("failed to write to printer: %w", err)
 	}
+	if written != len(data) {
+		return fmt.Errorf("failed to write to printer: short write %d/%d", written, len(data))
+	}
+
+	log.Printf("print-service: write complete")
 
 	return nil
 }
@@ -231,10 +269,8 @@ func (ps *PrintService) PrintTemplateWithVariables(ctx context.Context, template
 
 func (ps *PrintService) Close() error {
 	close(ps.quit)
-
-	if serialPort, ok := ps.port.(serial.Port); ok {
-		return serialPort.Close()
+	if c, ok := ps.port.(interface{ Close() error }); ok {
+		return c.Close()
 	}
-
 	return nil
 }

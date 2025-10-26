@@ -106,10 +106,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "data": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 }
             }
         },

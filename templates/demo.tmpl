@@ -1,0 +1,30 @@
+{{reset}}
+{{center "==== Feature Demo ====\n"}}
+
+{{bold "Standard text"}}
+{{wrap "This demonstrates the wrapping helper which ensures words move to the next line when exceeding the default character width."}}
+
+{{fontOptions "bold" true "underline" 1 "width" 2 "height" 2}}
+{{center "Bold, Underline, Double Size"}}
+{{fontOptions "bold" false "underline" 0 "width" 1 "height" 1}}
+
+{{rotate90 "Rotated 90 degrees text"}}
+
+{{fontOptions "lineSpacing" 50}}
+With custom line spacing applied above.
+{{fontOptions "lineSpacing" 30}}
+
+{{fontOptions "charSpacing" 10}}
+Character spacing widened.
+{{fontOptions "charSpacing" 0}}
+
+{{center "Scan the QR below"}}
+{{qr "https://example.com/demo" "size" 8 "error" "Q"}}
+
+{{fontOptions "invert" true}}
+{{center "Inverted text preview"}}
+{{fontOptions "invert" false}}
+
+{{center "==== End Demo ====\n"}}
+{{feed 2}}
+{{cut}}

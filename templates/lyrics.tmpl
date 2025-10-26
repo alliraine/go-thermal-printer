@@ -1,0 +1,12 @@
+{{reset}}
+{{if .cover}}
+{{image .cover 384}}
+{{reset}}
+{{end}}
+
+{{center (doubleSize (bold (wrap .title)))}}
+
+{{center (wrap .lyrics)}}
+
+{{feed 2}}
+{{reset}}

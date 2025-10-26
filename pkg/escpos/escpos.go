@@ -18,12 +18,27 @@ func NewESCPOS(rw io.ReadWriter) (escpos *ESCPOS) {
 	return
 }
 
-// Write raw bytes to the printer.
+// Write raw bytes to the printer ensuring the full payload is delivered.
 func (p *ESCPOS) Write(data []byte) (int, error) {
-	if len(data) > 0 {
-		return p.rw.Write(data)
+	if len(data) == 0 {
+		return 0, nil
 	}
-	return 0, nil
+
+	total := 0
+	for total < len(data) {
+		n, err := p.rw.Write(data[total:])
+		if n > 0 {
+			total += n
+		}
+		if err != nil {
+			return total, err
+		}
+		if n == 0 {
+			return total, io.ErrShortWrite
+		}
+	}
+
+	return total, nil
 }
 
 // Reads raw bytes from the printer.

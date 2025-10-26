@@ -4,6 +4,7 @@
 host = "0.0.0.0"
 port = 8080
 api_key = "<your-api-key-here>"
+swagger_host = "localhost:8080"   # Host for Swagger documentation (e.g., "localhost:8080")
 
 [printer]
 port = "/dev/ttyUSB0"           # Serial port path (Windows: "COM1", Linux: "/dev/ttyUSB0")
