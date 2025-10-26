@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -48,15 +49,21 @@ func loadConfig(path string) (*model.AppConfig, error) {
 	setDefaultValues(config)
 
 	// If config file exists, load and override defaults
-	if _, err := os.Stat(path); err == nil {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read config file %s: %w", path, err)
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return config, nil
 		}
 
-		if err := toml.Unmarshal(data, config); err != nil {
-			return nil, fmt.Errorf("failed to parse TOML config: %w", err)
-		}
+		return nil, fmt.Errorf("failed to access config file %s: %w", path, err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file %s: %w", path, err)
+	}
+
+	if err := toml.Unmarshal(data, config); err != nil {
+		return nil, fmt.Errorf("failed to parse TOML config: %w", err)
 	}
 
 	return config, nil
