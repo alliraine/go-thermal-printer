@@ -27,6 +27,7 @@ func (m *ErrorHandlerMiddleware) Add() gin.HandlerFunc {
 			}
 
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
 	}
 }
