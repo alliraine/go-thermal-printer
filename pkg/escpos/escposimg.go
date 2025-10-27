@@ -5,13 +5,15 @@ import (
 	"encoding/base64"
 	"errors"
 	"image"
-	"image/color"
+	imagedraw "image/draw"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
 	"math"
 	"strings"
 	"unicode"
+
+	xdraw "golang.org/x/image/draw"
 )
 
 // EncodeImageToRasterBytes decodes a base64 image, scales to maxWidthDots (58mm ≈ 384),
@@ -67,28 +69,10 @@ func ImageToRasterBytes(img image.Image, maxWidthDots int) ([]byte, error) {
 	}
 
 	dst := image.NewRGBA(image.Rect(0, 0, newW, newH))
-	for y := 0; y < newH; y++ {
-		for x := 0; x < newW; x++ {
-			sx := int(float64(x)/float64(newW)*float64(w) + 0.5)
-			sy := int(float64(y)/float64(newH)*float64(h) + 0.5)
-			if sx >= w {
-				sx = w - 1
-			}
-			if sy >= h {
-				sy = h - 1
-			}
-			dst.Set(x, y, img.At(b.Min.X+sx, b.Min.Y+sy))
-		}
-	}
+	xdraw.ApproxBiLinear.Scale(dst, dst.Bounds(), img, b, xdraw.Src, nil)
 
 	gray := image.NewGray(dst.Bounds())
-	for y := 0; y < newH; y++ {
-		for x := 0; x < newW; x++ {
-			r, g, bb, _ := dst.At(x, y).RGBA()
-			v := uint8((0.299*float64(r) + 0.587*float64(g) + 0.114*float64(bb)) / 257.0)
-			gray.SetGray(x, y, color.Gray{Y: v})
-		}
-	}
+	imagedraw.Draw(gray, gray.Bounds(), dst, dst.Bounds().Min, imagedraw.Src)
 
 	// Pack bits row by row, centering image horizontally within alignedMaxWidth
 	imageBytes := newW / 8
