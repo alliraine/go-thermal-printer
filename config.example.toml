@@ -6,6 +6,8 @@ port = 8080
 api_key = "<your-api-key-here>"
 swagger_host = "localhost:8080"   # Host for Swagger documentation (e.g., "localhost:8080")
 
+usb_mode = false                # Enable direct USB raw printing (disables status polling)
+
 [printer]
 port = "/dev/ttyUSB0"           # Serial port path (Windows: "COM1", Linux: "/dev/ttyUSB0")
 baud_rate = 19200               # Baud rate for serial communication

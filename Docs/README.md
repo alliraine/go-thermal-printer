@@ -29,6 +29,7 @@ The API runs with a worker queue so only one job hits the thermal printer at a t
    data_bits = 8
    stop_bits = 1
    parity = 0         # 0=None,1=Odd,2=Even,3=Mark,4=Space
+   usb_mode = false   # Set true to stream bytes to /dev/usb/lp* devices (disables status polling)
    ```
 4. **Run the service**:
    ```bash
@@ -42,6 +43,8 @@ The API runs with a worker queue so only one job hits the thermal printer at a t
    ```
 
 You should see four status bytes in the JSON payload. Any non-zero error fields mean the printer blocked the request.
+
+> ⚠️ Status polling is unavailable while `usb_mode = true` because the raw USB transport only supports writes.
 
 ---
 
