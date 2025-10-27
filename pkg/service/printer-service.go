@@ -30,13 +30,18 @@ func (ps *PrinterService) GetPrinterStatus(c context.Context) (StatusResponse, e
 }
 
 func (ps *PrinterService) Print(c context.Context, input dto.PrinterPrintDto) error {
-	ctx, cancel := context.WithTimeout(c, 10*time.Second)
-	defer cancel()
-
 	data, err := decodePrintPayload(input.Data)
 	if err != nil {
 		return err
 	}
+
+	return ps.PrintBytes(c, data)
+}
+
+// PrintBytes sends a raw ESC/POS payload to the printer with the standard timeout.
+func (ps *PrinterService) PrintBytes(c context.Context, data []byte) error {
+	ctx, cancel := context.WithTimeout(c, 10*time.Second)
+	defer cancel()
 
 	return ps.printService.Print(ctx, data)
 }

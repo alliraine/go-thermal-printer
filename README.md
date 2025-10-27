@@ -273,6 +273,18 @@ This ensures commands never interleave on the serial line.
 
 Each public operation (print/status) wraps requests with a 10s context timeout in `PrinterService`. Adjust there if needed.
 
+## 📈 Performance
+
+Benchmarks highlight the cost of the legacy `/print-image` base64 round-trip compared to the new raw-byte helper:
+
+```bash
+go test -bench PrintImage -benchmem ./pkg/service
+BenchmarkPrintImageLegacy-3        16470            107408 ns/op           34514 B/op         17 allocs/op
+BenchmarkPrintImageDirect-3        88057             54955 ns/op           13257 B/op         14 allocs/op
+```
+
+Directly queueing raster bytes roughly halves the time per print request while also trimming allocations.
+
 ## 🧰 Development
 
 Run with live reload (suggested tool [air] or [fresh]) – not included by default. Minimal flow:

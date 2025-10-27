@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"encoding/base64"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -110,8 +109,7 @@ func (pc *PrinterController) PrintImage(c *gin.Context) {
 		return
 	}
 
-	payload := dto.PrinterPrintDto{Data: base64.StdEncoding.EncodeToString(bytes)}
-	if err := pc.printerService.Print(c.Request.Context(), payload); err != nil {
+	if err := pc.printerService.PrintBytes(c.Request.Context(), bytes); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "print failed: " + err.Error()})
 		return
 	}
